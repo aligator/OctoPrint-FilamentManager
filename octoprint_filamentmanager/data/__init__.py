@@ -11,7 +11,7 @@ from multiprocessing import Lock
 from backports import csv
 from uritools import urisplit
 from sqlalchemy.engine.url import URL
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event, text, and_
 from sqlalchemy.schema import MetaData, Table, Column, ForeignKeyConstraint, DDL, PrimaryKeyConstraint
 from sqlalchemy.sql import insert, update, delete, select, label
 from sqlalchemy.types import INTEGER, VARCHAR, REAL, TIMESTAMP
@@ -331,8 +331,12 @@ class FilamentManager(object):
     def update_selection(self, identifier, client_id, data):
         with self.lock, self.conn.begin():
             values = dict()
-            if self.engine_dialect_is(self.DIALECT_SQLITE) or self.engine_dialect_is(self.DIALECT_MYSQL):
+            if self.engine_dialect_is(self.DIALECT_SQLITE):
                 stmt = insert(self.selections).prefix_with("OR REPLACE")\
+                    .values(tool=identifier, client_id=client_id, spool_id=data["spool"]["id"])
+            elif self.engine_dialect_is(self.DIALECT_MYSQL):
+                self.conn.execute(delete(self.selections).where(and_(self.selections.c.tool == identifier, self.selections.c.client_id == client_id)))
+                stmt = insert(self.selections)\
                     .values(tool=identifier, client_id=client_id, spool_id=data["spool"]["id"])
             elif self.engine_dialect_is(self.DIALECT_POSTGRESQL):
                 stmt = pg_insert(self.selections)\
