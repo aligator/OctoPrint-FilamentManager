@@ -12,7 +12,7 @@ If you have questions or encounter issues please take a look at the [Frequently 
 * Apply temperature offsets assigned to spools
 * Import & export of your spool inventory
 * Support for PostgreSQL (>=9.5) as common database for multiple OctoPrint instances
-
+* Support for MariaDB (Note: tested only MariaDB. MySQL not tested but it may work also)
 ## Setup
 
 1. Install this plugin via the bundled [Plugin Manager](https://github.com/foosel/OctoPrint/wiki/Plugin:-Plugin-Manager)
@@ -23,6 +23,13 @@ or manually using this URL:
 1. For PostgreSQL support you need to install an additional dependency:
 
     `pip install psycopg2`
+    
+1. For MariaDB support you need to install an additional dependency
+
+    `pip install pymysql`
+    
+   The connection string needs to start with 'mysql'.
+    
 
 ## Screenshots
 
