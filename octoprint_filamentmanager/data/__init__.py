@@ -25,6 +25,8 @@ class FilamentManager(object):
 
     DIALECT_SQLITE = "sqlite"
     DIALECT_POSTGRESQL = "postgresql"
+    DIALECT_MYSQL = "mysql"
+    DRIVER_MYSQL_PYMYSQL = "mysql+pymysql"
 
     def __init__(self, config):
         self.notify = None
@@ -45,6 +47,8 @@ class FilamentManager(object):
         elif self.engine_dialect_is(self.DIALECT_POSTGRESQL):
             # Create listener thread
             self.notify = PGNotify(self.conn.engine.url)
+        #elif self.engine_dialect_is(self.DIALECT_MYSQL):
+            # Nothing to do
 
     def connect(self, uri, database="", username="", password=""):
         uri_parts = urisplit(uri)
@@ -55,6 +59,14 @@ class FilamentManager(object):
             uri = URL(drivername=uri_parts.scheme,
                       host=uri_parts.host,
                       port=uri_parts.getport(default=5432),
+                      database=database,
+                      username=username,
+                      password=password)
+            engine = create_engine(uri)
+        elif uri_parts.scheme == self.DIALECT_MYSQL:
+            uri = URL(drivername=self.DRIVER_MYSQL_PYMYSQL,
+                      host=uri_parts.host,
+                      port=uri_parts.getport(default=3306),
                       database=database,
                       username=username,
                       password=password)
@@ -143,6 +155,17 @@ class FilamentManager(object):
                     if should_create_trigger(name):
                         event.listen(metadata, "after_create", trigger)
 
+        elif self.engine_dialect_is(self.DIALECT_MYSQL):
+            for table in [self.profiles.name, self.spools.name]:
+                for action in ["INSERT", "UPDATE", "DELETE"]:
+                    name = "{table}_on_{action}".format(table=table, action=action.lower())
+                    ddl = """
+                                  CREATE TRIGGER IF NOT EXISTS {name} AFTER {action} on {table}
+                                  FOR EACH ROW REPLACE INTO modifications (table_name, action) VALUES ('{table}','{action}');
+                                  """.format(name=name, table=table, action=action)
+                    trigger = DDL(ddl)
+                    event.listen(metadata, "after_create", trigger)
+    
         elif self.engine_dialect_is(self.DIALECT_SQLITE):
             for table in [self.profiles.name, self.spools.name]:
                 for action in ["INSERT", "UPDATE", "DELETE"]:
@@ -308,7 +331,7 @@ class FilamentManager(object):
     def update_selection(self, identifier, client_id, data):
         with self.lock, self.conn.begin():
             values = dict()
-            if self.engine_dialect_is(self.DIALECT_SQLITE):
+            if self.engine_dialect_is(self.DIALECT_SQLITE) or self.engine_dialect_is(self.DIALECT_MYSQL):
                 stmt = insert(self.selections).prefix_with("OR REPLACE")\
                     .values(tool=identifier, client_id=client_id, spool_id=data["spool"]["id"])
             elif self.engine_dialect_is(self.DIALECT_POSTGRESQL):
@@ -342,7 +365,7 @@ class FilamentManager(object):
                     for row in csv_reader:
                         values = dict(zip(header, row))
 
-                        if self.engine_dialect_is(self.DIALECT_SQLITE):
+                        if self.engine_dialect_is(self.DIALECT_SQLITE) or self.engine_dialect_is(self.DIALECT_MYSQL):
                             identifier = values[table.c.id.name]
                             # try to update entry
                             stmt = update(table).values(values).where(table.c.id == identifier)
