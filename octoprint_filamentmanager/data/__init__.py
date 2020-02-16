@@ -113,7 +113,7 @@ class FilamentManager(object):
                                 Column("schema_id", INTEGER, primary_key=True, autoincrement=False))
 
         self.modifications = Table("modifications", metadata,
-                                   Column("table_name", VARCHAR(255), nullable=False, primary_key=True),
+                                   Column("table_name", VARCHAR(100), nullable=False, primary_key=True),
                                    Column("action", VARCHAR(255), nullable=False),
                                    Column("changed_at", TIMESTAMP, nullable=False,
                                           server_default=text("CURRENT_TIMESTAMP")))
